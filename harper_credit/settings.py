@@ -43,6 +43,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "harper_credit.middleware.RequestIDMiddleware",
+    "harper_credit.middleware.AccessLogMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -50,6 +52,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "harper_credit.exceptions.JsonErrorMiddleware",
 ]
 
 ROOT_URLCONF = "harper_credit.urls"
@@ -123,3 +126,31 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# REST Framework: use custom exception handler for consistent JSON errors
+REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "harper_credit.exceptions.global_exception_handler",
+}
+
+# Logging: JSON access logs and error logs. Keep concise and avoid PII.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {
+            "format": "%(message)s",
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "plain",
+        }
+    },
+    "loggers": {
+        "access": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "errors": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        # Keep Django's default logging minimal in console
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
+}
