@@ -24,6 +24,24 @@ class ApplicantSerializer(serializers.ModelSerializer):
             "postal_code",
         ]
 
+    def validate(self, attrs):
+        # Trim first_name and last_name; collapse leading/trailing whitespace
+        first_name = attrs.get("first_name")
+        last_name = attrs.get("last_name")
+        if isinstance(first_name, str):
+            attrs["first_name"] = first_name.strip()
+        if isinstance(last_name, str):
+            attrs["last_name"] = last_name.strip()
+
+        # Normalize middle_name: if string -> trim; if empty after trim -> None; if None -> keep None
+        middle_name = attrs.get("middle_name")
+        if middle_name is None:
+            attrs["middle_name"] = None
+        elif isinstance(middle_name, str):
+            trimmed = middle_name.strip()
+            attrs["middle_name"] = trimmed if trimmed != "" else None
+        return attrs
+
 
 class ApplicationDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,18 +52,6 @@ class ApplicationDetailSerializer(serializers.ModelSerializer):
 class ApplicationCreateSerializer(serializers.Serializer):
     applicant = ApplicantSerializer()
     product = serializers.ChoiceField(choices=Application.Product.choices)
-
-    # Unified name normalization for first_name, middle_name, last_name
-    def validate(self, attrs):
-        applicant = attrs.get("applicant") or {}
-        for field_name in ("first_name", "middle_name", "last_name"):
-            value = applicant.get(field_name)
-            if isinstance(value, str):
-                applicant[field_name] = value.strip()
-        if applicant.get("middle_name") == "":
-            applicant["middle_name"] = None
-        attrs["applicant"] = applicant
-        return attrs
 
     def create(self, validated_data):
         applicant_data = validated_data.pop("applicant")
