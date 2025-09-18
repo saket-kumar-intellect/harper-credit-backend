@@ -106,3 +106,10 @@ curl -i -X POST http://127.0.0.1:8000/api/applications -H "Content-Type: applica
 ```
 
 You should also see one JSON access log line per request in the server terminal.
+
+## Validation & Normalization
+
+- Names: `first_name` and `last_name` are trimmed (leading/trailing whitespace removed).
+- `middle_name` may be null or omitted. If provided as a string, it is trimmed; if it becomes empty after trimming, it is stored as null.
+- Email must be unique. Duplicate emails return a `400` with a JSON validation error on `applicant.email`.
+- Other field validations remain as-is.
