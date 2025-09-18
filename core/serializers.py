@@ -1,5 +1,8 @@
 from rest_framework import serializers
 
+from django.db import IntegrityError
+from rest_framework import serializers
+
 from core.models import Applicant, Application
 from core.utils import compute_application_score
 
@@ -21,6 +24,24 @@ class ApplicantSerializer(serializers.ModelSerializer):
             "postal_code",
         ]
 
+    def validate(self, attrs):
+        # Trim first_name and last_name; collapse leading/trailing whitespace
+        first_name = attrs.get("first_name")
+        last_name = attrs.get("last_name")
+        if isinstance(first_name, str):
+            attrs["first_name"] = first_name.strip()
+        if isinstance(last_name, str):
+            attrs["last_name"] = last_name.strip()
+
+        # Normalize middle_name: if string -> trim; if empty after trim -> None; if None -> keep None
+        middle_name = attrs.get("middle_name")
+        if middle_name is None:
+            attrs["middle_name"] = None
+        elif isinstance(middle_name, str):
+            trimmed = middle_name.strip()
+            attrs["middle_name"] = trimmed if trimmed != "" else None
+        return attrs
+
 
 class ApplicationDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,13 +55,12 @@ class ApplicationCreateSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         applicant_data = validated_data.pop("applicant")
-        applicant, _ = Applicant.objects.get_or_create(
-            email=applicant_data["email"], defaults=applicant_data
-        )
-        # If applicant existed, update latest profile fields
-        for field_name, field_value in applicant_data.items():
-            setattr(applicant, field_name, field_value)
-        applicant.save()
+        try:
+            applicant = Applicant.objects.create(**applicant_data)
+        except IntegrityError:
+            raise serializers.ValidationError({
+                "applicant": {"email": ["An applicant with this email already exists."]}
+            })
 
         application = Application.objects.create(
             applicant=applicant, product=validated_data["product"]
